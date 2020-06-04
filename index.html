@@ -52,19 +52,49 @@ function handle_command(string)
 		track.play()
 }
 
+/*****************************/
+/** editor saving & running **/
+/*****************************/
+
+function handle_input(string)
+{
+	string
+		.replace(/# .+/, '')
+		.split('\n')
+		.filter(line => line.trim() !== '')
+		.forEach(line => handle_command(line))
+}
+
 EDITOR.addEventListener('keydown', e => {
+
+	if (e.ctrlKey && e.key === 'd') {
+		TRACKS.forEach(a => a.pause())
+
+		e.preventDefault()
+		return
+	}
+
 	if (!(e.ctrlKey && e.key === 's')) return
 
-	handle_command("play 32")
-	handle_command("play nothing")
-	handle_command("32 32")
-	//handle_command("play 1 from no with https://files.catbox.moe/iqc5uz.webm")
-	handle_command("play 1 from 62 with https://files.catbox.moe/iqc5uz.webm")
+	window.localStorage.setItem(KEY, EDITOR.innerText)
 
-	//window.localStorage.setItem(KEY, EDITOR.innerText)
-	//gen()
+	handle_input(EDITOR.innerText)
 
 	e.preventDefault()
+
 })
+
+const KEY = 'sett_editor'
+const TUTORIAL = 'hi'
+
+// load from 1. src 2. browser 3. tutorial
+const src_url = new URLSearchParams(window.location.search).get('src')
+;(async function() {
+
+	EDITOR.innerText =
+		src_url ? await fetch(src_url).then(r => r.text())
+		        : window.localStorage.getItem(KEY) || TUTORIAL
+
+})();
 
 </script>
