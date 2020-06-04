@@ -26,6 +26,34 @@ function run_track_command(track, cmd, args)
 {
 	console.log("ran track command", cmd, args)
 
+	if (cmd == 'wait') {
+
+		const until = number_arg(args.until)
+
+		LISTENERS.push(() => track.currentTime >= until)
+
+		run_command(...parse_command('block 1'))
+
+		return
+
+	}
+
+	if (cmd == 'sync') {
+		const other_track = TRACKS[number_arg(args.with) - 1]
+
+		if (!other_track)
+			return
+
+		const this_time  = number_arg(args.to)
+		const other_time = number_arg(args.from)
+
+		console.log(this_time - other_time)
+
+		track.currentTime = other_track.currentTime + (this_time - other_time)
+
+		return
+	}
+
 	if (cmd == 'linfade') {
 
 		const start_vol  = track.volume
@@ -85,7 +113,8 @@ function run_command(cmd, arg, args)
 	if (cmd == 'block') {
 		BLOCKED = true;
 
-		const target = LISTENERS.length
+		// add one to account for the listener we are about to add
+		const target = LISTENERS.length + 1 - num
 
 		LISTENERS.push(track => {
 
@@ -178,8 +207,10 @@ function receive_input(string)
 
 EDITOR.addEventListener('keydown', e => {
 
+	// reset button
 	if (e.ctrlKey && e.key === 'd') {
 		TRACKS.forEach(a => { a.pause(); a.volume = 0 })
+		LISTENERS.splice(0)
 		BLOCKED = false
 		COMMAND_QUEUE.splice(0)
 
