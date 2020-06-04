@@ -4,71 +4,184 @@
 	<audio controls></audio>
 	<audio controls></audio>
 </div>
-<div class="box">
-	hi
+<div id="trackinfo" class="box">
+	<pre></pre>
+	<pre></pre>
+	<pre id="info-global"></pre>
 </div>
 <div class="box">
 	hi
 </div>
 <div id="editor-wrapper" class="box">
-	<pre id="editor" contenteditable="true"></pre>
+	<textarea id="editor"></textarea>
 </div>
 
 <script>
-const EDITOR = document.querySelector('#editor')
-const TRACKS = [...document.querySelectorAll('#audios audio')]
+const EDITOR      = document.querySelector('#editor')
+const TRACKS      = [...document.querySelectorAll('#audios audio')]
+const TRACK_INFOS = [...document.querySelectorAll('#trackinfo pre')]
+const GLOBAL_INFO = document.querySelector('#info-global')
+
+function run_track_command(track, cmd, args)
+{
+	console.log("ran track command", cmd, args)
+
+	if (cmd == 'linfade') {
+
+		const start_vol  = track.volume
+		const end_vol    = number_arg(args.vol)
+
+		const start_time = track.currentTime
+		const end_time   = start_time + number_arg(args.dur)
+
+		LISTENERS.push(() => {
+
+			if (track.currentTime > end_time) {
+				track.volume = end_vol
+				return true
+			}
+
+			track.volume = start_vol +
+				(end_vol - start_vol) *
+					(track.currentTime - start_time) / (end_time - start_time)
+
+		})
+
+		return
+
+	}
+
+	if (args.vol)
+		track.volume = number_arg(args.vol)
+
+	if (args.with)
+		track.src = args.with
+
+	if (args.from)
+		track.currentTime = number_arg(args.from)
+
+	if (cmd == 'play') {
+		track.play()
+		return
+	}
+
+	if (cmd == 'set') {}
+}
 
 function number_arg(arg)
 {
+	return Number(arg) || 0
+}
+
+// does a bit of handling, including blocking logic
+// then run_track_command if there is no blocking to handle
+function run_command(cmd, arg, args)
+{
 	const num = Number(arg)
 
-	if (isNaN(num)) {
-		console.error(`argument "${arg}" is not a number!`)
-		return 0
+	if (!num) // don't want NaN or 0
+		return
+
+	if (cmd == 'block') {
+		BLOCKED = true;
+
+		const target = LISTENERS.length
+
+		LISTENERS.push(track => {
+
+			if (LISTENERS.length <= target) {
+
+				BLOCKED = false
+				return true
+
+			}
+
+			return false
+
+		})
+
+		return
 	}
 
-	return num
+	if (!TRACKS[num - 1])
+		return
+
+	run_track_command(TRACKS[num - 1], cmd, args)
 }
 
-function handle_command(string)
+/*****************************/
+/** listener and loop logic **/
+/*****************************/
+
+let LISTENERS = []
+
+// event loop
+function loop()
 {
-	const [, command, trackno_str, rest] = string.match(/^([a-z]+)\s+(\d+)(?:\s+)?(.*)/) || []
+	LISTENERS = LISTENERS.filter(l => !l())
+
+	TRACKS.forEach((track, i) => {
+		GLOBAL_INFO.innerText = `listeners: ${LISTENERS.length}`
+		TRACK_INFOS[i].innerText = `track ${i+1}:\n\tvolume: ${track.volume}\n\ttime: ${track.currentTime}`
+	})
+
+	const cmd = get_next_command()
+
+	if (cmd)
+		run_command(...cmd)
+}
+
+setInterval(loop, 25)
+
+/*******************************************/
+/** command parsing, queue/blocking logic **/
+/*******************************************/
+
+const COMMAND_QUEUE = []
+let BLOCKED = false
+
+function get_next_command()
+{
+	if (BLOCKED)
+		return null
+
+	if (COMMAND_QUEUE.length == 0)
+		return null
+
+	return COMMAND_QUEUE.shift()
+}
+
+function parse_command(string)
+{
+	const [, command, arg, rest] = string.match(/^([a-z]+)\s+([^\s]+)(?:\s+)?(.*)/) || []
+
 	const subcommands = Object.fromEntries([...(rest || '').matchAll(/([a-z]+)\s+([^\s]+)/g)].map(match => match.slice(1)))
 
-	const track = TRACKS[Number(trackno_str) - 1]
-
-	if (!command)
-		return
-	if (!track)
-		return
-
-	if(subcommands.with)
-		track.src = subcommands.with;
-
-	if(subcommands.from)
-		track.currentTime = number_arg(subcommands.from)
-
-	if(command == 'play')
-		track.play()
+	return command
+		? [command, arg, subcommands]
+		: null
 }
 
-/*****************************/
-/** editor saving & running **/
-/*****************************/
-
-function handle_input(string)
+function receive_input(string)
 {
-	string
+	COMMAND_QUEUE.push(...string
 		.replace(/# .+/, '')
 		.split('\n')
-		.filter(line => line.trim() !== '')
-		.forEach(line => handle_command(line))
+		.map(parse_command)
+		.filter(c => c)
+	)
 }
+
+/*************/
+/** UI code **/
+/*************/
 
 EDITOR.addEventListener('keydown', e => {
 
 	if (e.ctrlKey && e.key === 'd') {
-		TRACKS.forEach(a => a.pause())
+		TRACKS.forEach(a => { a.pause(); a.volume = 0 })
+		BLOCKED = false
+		COMMAND_QUEUE.splice(0)
 
 		e.preventDefault()
 		return
@@ -76,9 +189,9 @@ EDITOR.addEventListener('keydown', e => {
 
 	if (!(e.ctrlKey && e.key === 's')) return
 
-	window.localStorage.setItem(KEY, EDITOR.innerText)
+	window.localStorage.setItem(KEY, EDITOR.value)
 
-	handle_input(EDITOR.innerText)
+	receive_input(EDITOR.value)
 
 	e.preventDefault()
 
@@ -91,7 +204,7 @@ const TUTORIAL = 'hi'
 const src_url = new URLSearchParams(window.location.search).get('src')
 ;(async function() {
 
-	EDITOR.innerText =
+	EDITOR.value =
 		src_url ? await fetch(src_url).then(r => r.text())
 		        : window.localStorage.getItem(KEY) || TUTORIAL
 
