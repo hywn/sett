@@ -1,6 +1,6 @@
 <link rel="stylesheet" href="sett.css" />
 
-<div class="box">
+<div id="audios" class="box">
 	<audio controls></audio>
 	<audio controls></audio>
 </div>
@@ -13,3 +13,58 @@
 <div id="editor-wrapper" class="box">
 	<pre id="editor" contenteditable="true"></pre>
 </div>
+
+<script>
+const EDITOR = document.querySelector('#editor')
+const TRACKS = [...document.querySelectorAll('#audios audio')]
+
+function number_arg(arg)
+{
+	const num = Number(arg)
+
+	if (isNaN(num)) {
+		console.error(`argument "${arg}" is not a number!`)
+		return 0
+	}
+
+	return num
+}
+
+function handle_command(string)
+{
+	const [, command, trackno_str, rest] = string.match(/^([a-z]+)\s+(\d+)(?:\s+)?(.*)/) || []
+	const subcommands = Object.fromEntries([...(rest || '').matchAll(/([a-z]+)\s+([^\s]+)/g)].map(match => match.slice(1)))
+
+	const track = TRACKS[Number(trackno_str) - 1]
+
+	if (!command)
+		return
+	if (!track)
+		return
+
+	if(subcommands.with)
+		track.src = subcommands.with;
+
+	if(subcommands.from)
+		track.currentTime = number_arg(subcommands.from)
+
+	if(command == 'play')
+		track.play()
+}
+
+EDITOR.addEventListener('keydown', e => {
+	if (!(e.ctrlKey && e.key === 's')) return
+
+	handle_command("play 32")
+	handle_command("play nothing")
+	handle_command("32 32")
+	//handle_command("play 1 from no with https://files.catbox.moe/iqc5uz.webm")
+	handle_command("play 1 from 62 with https://files.catbox.moe/iqc5uz.webm")
+
+	//window.localStorage.setItem(KEY, EDITOR.innerText)
+	//gen()
+
+	e.preventDefault()
+})
+
+</script>
