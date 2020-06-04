@@ -1,0 +1,38 @@
+html {
+	margin: 5em;
+
+	display: flex;
+	justify-content: center;
+	align-items: flex-start;
+}
+
+body {
+	display: grid;
+	grid-template-columns: min-content 30em;
+	grid-template-rows: min-content 1fr 1fr;
+	gap: 0.5em
+}
+
+.box {
+	padding: 1em;
+
+	background-color: #eee;
+}
+
+#editor-wrapper {
+	grid-column: 2;
+	grid-row-start: 1;
+	grid-row-end: span 3;
+}
+
+#editor {
+	margin: 0;
+	padding: 1em;
+
+	height: 30em;
+
+	overflow: scroll;
+	resize: both;
+
+	background-color: #fff;
+}
